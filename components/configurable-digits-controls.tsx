@@ -239,12 +239,16 @@ export interface ConfigurableDigitsControlsProps {
    * render every block.
    */
   keys?: ControlKey[];
-  /**
-   * Hide the "View your positions" link. When the desktop layout splits into
-   * two columns only the controls column keeps the link, so it renders once.
-   */
-  showPositionsLink?: boolean;
-}
+	  /**
+	   * Hide the "View your positions" link. When the desktop layout splits into
+	   * two columns only the controls column keeps the link, so it renders once.
+	   */
+	  showPositionsLink?: boolean;
+
+	  // Additive analysis / bot support (optional, ignored in no-code layouts)
+	  prices?: number[];
+	  executeBotTrade?: (params: { contractMode: ContractMode; digit?: number; stake?: number; duration?: number }) => Promise<void>;
+	}
 
 export function ConfigurableDigitsControls(props: ConfigurableDigitsControlsProps) {
   const {

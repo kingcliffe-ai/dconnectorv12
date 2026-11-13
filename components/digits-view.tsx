@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban } from 'lucide-react';
+import { Ban, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Localize } from '@deriv-com/translations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,10 @@ import { ConfigurableDigitsControls, ConfigurableBuyButton } from './configurabl
 import { TradeTypeChips } from '@/components/custom/trade-type-chips';
 import { SymbolSelector } from '@/components/custom/symbol-selector';
 import { ThemeToggle } from '@/components/custom/theme-toggle';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { AnalysisCenter } from './market-analysis';
+import { useTradingBot } from '@/hooks/use-trading-bot';
 import type {
   AuthState,
   DerivAccount,
@@ -100,6 +104,10 @@ export interface DigitsViewProps {
   proposal: ProposalInfo | null;
   isProposalLoading: boolean;
   buyContract: () => Promise<void>;
+  /** New: systematic bot can execute targeted trades */
+  executeBotTrade?: (params: { contractMode: ContractMode; digit?: number; stake?: number; duration?: number }) => Promise<void>;
+  /** Live price history for analysis */
+  prices?: number[];
   isBuying: boolean;
   buyResult: BuyResult | null;
   buyError: string | null;
@@ -158,21 +166,23 @@ export function DigitsView({
   durationLimits,
   proposal,
   isProposalLoading,
-  buyContract,
-  isBuying,
-  buyResult,
-  buyError,
-  clearBuyResult,
-  logoSrc,
-  appName,
-  showAppName,
-  appConfig,
-  editMode,
-  onSelect,
-  selectedKey,
-  rearrangeMode,
-  onReorder,
-}: DigitsViewProps) {
+	  buyContract,
+	  executeBotTrade,
+	  prices,
+	  isBuying,
+	  buyResult,
+	  buyError,
+	  clearBuyResult,
+	  logoSrc,
+	  appName,
+	  showAppName,
+	  appConfig,
+	  editMode,
+	  onSelect,
+	  selectedKey,
+	  rearrangeMode,
+	  onReorder,
+	}: DigitsViewProps) {
   const isMobile = useIsMobile();
   // Pinning is a mobile affordance: on desktop the controls card grows to fit,
   // so the Buy button is never scroll-clipped and a viewport-wide bar under a
@@ -197,6 +207,38 @@ export function DigitsView({
   const { localize, locale } = useAppTranslations();
   const digitTradeTypeOptions = getDigitTradeTypeOptions(localize);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  // === NEW: Systematic Trading Bot + AI Analysis (additive, does not affect manual trading) ===
+  const bot = useTradingBot({
+    isConnected,
+    isAuthenticated: authState === 'authenticated',
+    activeSymbol: activeSymbol
+      ? {
+          display_name: (activeSymbol as any).display_name ?? (activeSymbol as any).underlying_symbol ?? 'Symbol',
+          underlying_symbol: (activeSymbol as any).underlying_symbol,
+        }
+      : null,
+    prices: prices ?? [],
+    pipSize,
+    lastDigit,
+    buyContract: async (override) => {
+      if (override && executeBotTrade) {
+        // Use the dedicated bot executor when available
+        await executeBotTrade({
+          contractMode: (override.contractMode || contractMode) as ContractMode,
+          digit: override.digit,
+          stake: override.stake,
+          duration: override.duration,
+        });
+      } else {
+        await buyContract();
+      }
+    },
+    currentStake: stake,
+    currentDuration: duration,
+  });
+
+  const [showAnalysis, setShowAnalysis] = useState(false);
 
   // Logged-out Buy opens the login/sign-up prompt instead of sending a buy that
   // would fail with a "Purchase Failed" toast. One gate covers every Buy
@@ -257,7 +299,49 @@ export function DigitsView({
         logoSrc={logoSrc}
         appName={appName}
         showAppName={showAppName}
-        actions={<ThemeToggle />}
+        actions={
+          <>
+            <ThemeToggle />
+            {!editMode && (
+              <Dialog open={showAnalysis} onOpenChange={setShowAnalysis}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 hidden lg:inline-flex"
+                    onClick={() => setShowAnalysis(true)}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    <span className="hidden xl:inline">
+                      <Localize i18n_default_text="Analysis" />
+                    </span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[92dvh] overflow-y-auto">
+                  <AnalysisCenter
+                    analysis={bot.state.currentAnalysis}
+                    symbol={(activeSymbol as any)?.display_name ?? (activeSymbol as any)?.underlying_symbol ?? null}
+                    lastDigit={lastDigit}
+                    isConnected={isConnected}
+                    isAuthenticated={authState === 'authenticated'}
+                    botSettings={bot.settings}
+                    botState={bot.state}
+                    onBotUpdateSettings={bot.updateSettings}
+                    onBotStart={bot.startBot}
+                    onBotStop={bot.stopBot}
+                    onBotReset={bot.resetBot}
+                    onBotToggleSimulation={bot.toggleSimulation}
+                    onRequestFullScan={() => {
+                      /* analysis updates automatically via live data */
+                    }}
+                    canExecuteTrades={!!executeBotTrade && authState === 'authenticated'}
+                    executeBotTrade={executeBotTrade}
+                  />
+                </DialogContent>
+              </Dialog>
+            )}
+          </>
+        }
       />
     );
   }, [
@@ -272,6 +356,15 @@ export function DigitsView({
     logoSrc,
     appName,
     showAppName,
+    showAnalysis,
+    bot,
+    isConnected,
+    lastDigit,
+    activeSymbol,
+    executeBotTrade,
+    buyContract,
+    stake,
+    duration,
   ]);
 
   if (error) {
@@ -329,6 +422,9 @@ export function DigitsView({
         rearrangeMode={rearrangeMode}
         onReorder={onReorder}
         pinBuy={pinBuy}
+        // New analysis props (ignored by configurable for backward compat)
+        prices={prices}
+        executeBotTrade={executeBotTrade}
       />
     ) : null;
 
@@ -422,12 +518,23 @@ export function DigitsView({
             </>
           ) : (
             <>
-              <TradeTypeChips
-                className="shrink-0"
-                value={tradeType}
-                options={digitTradeTypeOptions}
-                onValueChange={setTradeType}
-              />
+              <div className="flex items-center justify-between">
+                <TradeTypeChips
+                  className="shrink-0"
+                  value={tradeType}
+                  options={digitTradeTypeOptions}
+                  onValueChange={setTradeType}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 text-xs lg:hidden"
+                  onClick={() => setShowAnalysis(true)}
+                >
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Analysis
+                </Button>
+              </div>
 
               <Card className="shrink-0 border shadow-sm mb-12">
                 <CardContent className="flex flex-col p-3 pt-3 sm:p-6 sm:pt-4 pb-2 sm:pb-6">
