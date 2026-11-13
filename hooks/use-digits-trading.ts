@@ -61,6 +61,8 @@ interface UseDigitsTradingReturn {
   clearSellError: () => void;
   /** Live price history for advanced analysis and bot. */
   prices: number[];
+  /** Shared Deriv WS instance for multi-market scanning (additive). */
+  ws: any;
 }
 
 export type UseDigitsTradingParams = Pick<UseBaseTradingParams, 'ws' | 'isConnected' | 'isExhausted' | 'isAuthenticated' | 'onAuthWSFailed'>;
@@ -238,5 +240,7 @@ export function useDigitsTrading({ ws, isConnected, isExhausted, isAuthenticated
     sellError,
     clearSellError,
     prices,
+    // Exposed for the global multi-market AI scanner (additive only)
+    ws,
   };
 }

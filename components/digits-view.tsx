@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { AnalysisCenter } from './market-analysis';
 import { useTradingBot } from '@/hooks/use-trading-bot';
+import { useMarketScanner } from '@/hooks/use-market-scanner';
 import type {
   AuthState,
   DerivAccount,
@@ -106,9 +107,11 @@ export interface DigitsViewProps {
   buyContract: () => Promise<void>;
   /** New: systematic bot can execute targeted trades */
   executeBotTrade?: (params: { contractMode: ContractMode; digit?: number; stake?: number; duration?: number }) => Promise<void>;
-  /** Live price history for analysis */
-  prices?: number[];
-  isBuying: boolean;
+	  /** Live price history for analysis */
+	  prices?: number[];
+	  /** WS for global scanner (additive) */
+	  ws?: any;
+	  isBuying: boolean;
   buyResult: BuyResult | null;
   buyError: string | null;
   clearBuyResult: () => void;
@@ -169,6 +172,7 @@ export function DigitsView({
 	  buyContract,
 	  executeBotTrade,
 	  prices,
+	  ws,
 	  isBuying,
 	  buyResult,
 	  buyError,
@@ -236,6 +240,13 @@ export function DigitsView({
     },
     currentStake: stake,
     currentDuration: duration,
+  });
+
+  // NEW: Fully functional AI Signal Agent that scans ALL Deriv markets for best tradable ones
+  const scanner = useMarketScanner({
+    ws: ws ?? null,
+    isConnected,
+    isAuthenticated: authState === 'authenticated',
   });
 
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -336,6 +347,18 @@ export function DigitsView({
                     }}
                     canExecuteTrades={!!executeBotTrade && authState === 'authenticated'}
                     executeBotTrade={executeBotTrade}
+                    // Global AI multi-market scanner + chart
+                    scannerMarkets={scanner.markets}
+                    scannerBest={scanner.bestMarket}
+                    scannerIsScanning={scanner.isScanning}
+                    scannerLastScan={scanner.lastScanTime}
+                    scannerTotal={scanner.totalMarketsScanned}
+                    onScannerRefresh={scanner.refreshScan}
+                    onSelectMarketForTrading={(sym) => {
+                      // Additive: switch main trading symbol to the AI-recommended best market
+                      if (selectSymbol) selectSymbol(sym);
+                      setShowAnalysis(false);
+                    }}
                   />
                 </DialogContent>
               </Dialog>
@@ -422,10 +445,11 @@ export function DigitsView({
         rearrangeMode={rearrangeMode}
         onReorder={onReorder}
         pinBuy={pinBuy}
-        // New analysis props (ignored by configurable for backward compat)
-        prices={prices}
-        executeBotTrade={executeBotTrade}
-      />
+	        // New analysis props (ignored by configurable for backward compat)
+	        prices={prices}
+	        executeBotTrade={executeBotTrade}
+	        ws={ws}
+	      />
     ) : null;
 
   return (

@@ -55,6 +55,15 @@ export function TradingInstructions() {
         <div className="pt-2 border-t text-[11px] text-muted-foreground">
           This is an educational systematic tool. Past performance does not guarantee future results. Trade responsibly.
         </div>
+
+        <div className="pt-3 border-t">
+          <h4 className="font-semibold text-foreground">Global AI Market Scanner</h4>
+          <p>
+            The new Global AI Scanner tab continuously monitors 10+ Deriv digit markets (Volatility 1s indices, Crash/Boom) in parallel using the same authenticated connection.
+            It ranks every market by statistical edge + confidence using the core analyzer and surfaces the single best tradable market at any moment.
+            Use the "Trade This" buttons to instantly switch your main trading symbol to the AI-recommended market. The embedded analysis chart visualizes edge and confidence across the top opportunities.
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

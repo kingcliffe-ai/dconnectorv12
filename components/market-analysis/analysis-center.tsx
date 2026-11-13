@@ -5,8 +5,10 @@ import { Localize } from '@deriv-com/translations';
 import { AIMarketAgent } from './ai-market-agent';
 import { SystematicBotControls } from './systematic-bot-controls';
 import { TradingInstructions } from './trading-instructions';
+import { GlobalMarketScanner } from './global-market-scanner';
 import type { MarketAnalysis } from '@/lib/market-analyzer';
 import type { BotSettings, BotState } from '@/hooks/use-trading-bot';
+import type { ScannedMarket } from '@/hooks/use-market-scanner';
 import { cn } from '@/lib/utils';
 
 interface AnalysisCenterProps {
@@ -32,6 +34,15 @@ interface AnalysisCenterProps {
   // To allow bot to drive trades
   canExecuteTrades: boolean;
   executeBotTrade?: (params: { contractMode: any; digit?: number; stake?: number; duration?: number }) => Promise<void>;
+
+  // NEW: Global multi-market AI scanner (additive)
+  scannerMarkets?: ScannedMarket[];
+  scannerBest?: ScannedMarket | null;
+  scannerIsScanning?: boolean;
+  scannerLastScan?: Date | null;
+  scannerTotal?: number;
+  onScannerRefresh?: () => void;
+  onSelectMarketForTrading?: (symbol: string) => void;
 }
 
 export function AnalysisCenter({
@@ -50,10 +61,18 @@ export function AnalysisCenter({
   onRequestFullScan,
   canExecuteTrades,
   executeBotTrade,
+  // Scanner props (additive - no impact on existing tabs)
+  scannerMarkets = [],
+  scannerBest = null,
+  scannerIsScanning = false,
+  scannerLastScan = null,
+  scannerTotal = 10,
+  onScannerRefresh,
+  onSelectMarketForTrading,
 }: AnalysisCenterProps) {
-  const [activeTab, setActiveTab] = useState<'agent' | 'bot' | 'guide'>('agent');
+  const [activeTab, setActiveTab] = useState<'agent' | 'bot' | 'scanner' | 'guide'>('agent');
 
-  const TabButton = ({ value, children }: { value: 'agent' | 'bot' | 'guide'; children: React.ReactNode }) => (
+  const TabButton = ({ value, children }: { value: 'agent' | 'bot' | 'scanner' | 'guide'; children: React.ReactNode }) => (
     <button
       onClick={() => setActiveTab(value)}
       className={cn(
@@ -82,6 +101,7 @@ export function AnalysisCenter({
 
       <div className="flex gap-1 rounded-lg bg-muted p-1 w-fit">
         <TabButton value="agent">AI Agent</TabButton>
+        <TabButton value="scanner">Global AI Scanner</TabButton>
         <TabButton value="bot">Trading Bot</TabButton>
         <TabButton value="guide">Instructions</TabButton>
       </div>
@@ -93,6 +113,19 @@ export function AnalysisCenter({
           lastDigit={lastDigit}
           isConnected={isConnected}
           onRequestScan={onRequestFullScan}
+        />
+      )}
+
+      {activeTab === 'scanner' && (
+        <GlobalMarketScanner
+          markets={scannerMarkets}
+          bestMarket={scannerBest}
+          isScanning={scannerIsScanning}
+          lastScanTime={scannerLastScan}
+          totalMarketsScanned={scannerTotal}
+          onRefresh={onScannerRefresh || (() => {})}
+          onSelectMarket={onSelectMarketForTrading}
+          isConnected={isConnected}
         />
       )}
 
