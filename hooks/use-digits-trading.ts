@@ -47,6 +47,8 @@ interface UseDigitsTradingReturn {
   proposal: ProposalInfo | null;
   isProposalLoading: boolean;
   buyContract: () => Promise<void>;
+  /** Bot can execute a specific trade without permanently changing user-selected controls. */
+  executeBotTrade: (params: { contractMode: ContractMode; digit?: number; stake?: number; duration?: number }) => Promise<void>;
   isBuying: boolean;
   buyResult: BuyResult | null;
   buyError: string | null;
@@ -57,6 +59,8 @@ interface UseDigitsTradingReturn {
   sellingId: number | null;
   sellError: string | null;
   clearSellError: () => void;
+  /** Live price history for advanced analysis and bot. */
+  prices: number[];
 }
 
 export type UseDigitsTradingParams = Pick<UseBaseTradingParams, 'ws' | 'isConnected' | 'isExhausted' | 'isAuthenticated' | 'onAuthWSFailed'>;
@@ -160,6 +164,41 @@ export function useDigitsTrading({ ws, isConnected, isExhausted, isAuthenticated
     }
   }, [proposal, buyWithProposal]);
 
+  // Bot-specific executor: temporarily overrides controls for the duration of the buy
+  // then restores previous user values. This keeps the bot fully systematic while
+  // not permanently altering the manual trading UI state.
+  const executeBotTrade = useCallback(
+    async (params: { contractMode: ContractMode; digit?: number; stake?: number; duration?: number }) => {
+      const prevContract = contractMode;
+      const prevDigit = selectedDigit;
+      const prevStake = stake;
+      const prevDuration = duration;
+
+      // Apply overrides
+      if (params.contractMode) setContractMode(params.contractMode);
+      if (params.digit !== undefined) setSelectedDigit(params.digit);
+      if (params.stake !== undefined) setStake(String(params.stake));
+      if (params.duration !== undefined) setDuration(params.duration);
+
+      // Allow React state + proposal to update
+      await new Promise((r) => setTimeout(r, 120));
+
+      // Execute using the (now updated) proposal
+      if (proposal) {
+        await buyWithProposal(proposal);
+      }
+
+      // Restore previous user selections (non-blocking)
+      setTimeout(() => {
+        setContractMode(prevContract);
+        setSelectedDigit(prevDigit);
+        setStake(prevStake);
+        setDuration(prevDuration);
+      }, 180);
+    },
+    [contractMode, selectedDigit, stake, duration, setContractMode, setSelectedDigit, setStake, setDuration, proposal, buyWithProposal]
+  );
+
   return {
     isConnected,
     isLoading,
@@ -187,6 +226,7 @@ export function useDigitsTrading({ ws, isConnected, isExhausted, isAuthenticated
     proposal,
     isProposalLoading: isConnected && proposalParams !== null && proposal === null,
     buyContract,
+    executeBotTrade,
     isBuying,
     buyResult,
     buyError,
@@ -197,5 +237,6 @@ export function useDigitsTrading({ ws, isConnected, isExhausted, isAuthenticated
     sellingId,
     sellError,
     clearSellError,
+    prices,
   };
 }

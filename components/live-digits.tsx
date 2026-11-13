@@ -23,6 +23,8 @@ export function LiveDigits({
   logoSrc: logoSrcOverride,
   appName,
   showAppName,
+  executeBotTrade,
+  prices,
 }: {
   appConfig?: DigitsAppConfig;
   editMode?: boolean;
@@ -34,6 +36,9 @@ export function LiveDigits({
   logoSrc?: string;
   appName?: string;
   showAppName?: boolean;
+  // The following are passed through from parent when available (additive)
+  executeBotTrade?: any;
+  prices?: number[];
 }) {
   const providerLogo = useLogoSrc();
   const logoSrc = logoSrcOverride ?? providerLogo;
@@ -84,6 +89,8 @@ export function LiveDigits({
       proposal={trading.proposal}
       isProposalLoading={trading.isProposalLoading}
       buyContract={trading.buyContract}
+      executeBotTrade={executeBotTrade ?? trading.executeBotTrade}
+      prices={prices ?? trading.prices}
       isBuying={trading.isBuying}
       buyResult={trading.buyResult}
       buyError={trading.buyError}
