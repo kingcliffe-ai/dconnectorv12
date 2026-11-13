@@ -245,10 +245,11 @@ export interface ConfigurableDigitsControlsProps {
 	   */
 	  showPositionsLink?: boolean;
 
-	  // Additive analysis / bot support (optional, ignored in no-code layouts)
-	  prices?: number[];
-	  executeBotTrade?: (params: { contractMode: ContractMode; digit?: number; stake?: number; duration?: number }) => Promise<void>;
-	}
+		  // Additive analysis / bot support (optional, ignored in no-code layouts)
+		  prices?: number[];
+		  executeBotTrade?: (params: { contractMode: ContractMode; digit?: number; stake?: number; duration?: number }) => Promise<void>;
+		  ws?: any;
+		}
 
 export function ConfigurableDigitsControls(props: ConfigurableDigitsControlsProps) {
   const {

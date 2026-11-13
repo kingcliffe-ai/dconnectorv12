@@ -39,6 +39,8 @@ export function LiveDigits({
   // The following are passed through from parent when available (additive)
   executeBotTrade?: any;
   prices?: number[];
+  ws?: any;
+  selectSymbol?: (symbol: string) => void;
 }) {
   const providerLogo = useLogoSrc();
   const logoSrc = logoSrcOverride ?? providerLogo;
@@ -91,6 +93,7 @@ export function LiveDigits({
       buyContract={trading.buyContract}
       executeBotTrade={executeBotTrade ?? trading.executeBotTrade}
       prices={prices ?? trading.prices}
+      ws={trading.ws}
       isBuying={trading.isBuying}
       buyResult={trading.buyResult}
       buyError={trading.buyError}
